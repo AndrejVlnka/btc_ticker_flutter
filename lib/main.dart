@@ -1,4 +1,11 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+
+import 'package:flutter/foundation.dart';
+import 'package:web_socket_channel/web_socket_channel.dart';
+
+import 'model/Ticker.dart';
 
 void main() {
   runApp(MyApp());
@@ -7,8 +14,9 @@ void main() {
 class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final title = 'BTC Ticker - Coinbase WebSocket Flutter Demo';
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: title,
       theme: ThemeData(
         brightness: Brightness.light,
         /* light theme settings */
@@ -22,7 +30,7 @@ class MyApp extends StatelessWidget {
          ThemeMode.light for light theme, 
          ThemeMode.dark for dark theme
       */
-      home: MyHomePage(title: 'Flutter Demo Home Page'),
+      home: MyHomePage(title: title),
     );
   }
 }
@@ -37,12 +45,41 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+  final WebSocketChannel _channel =
+      WebSocketChannel.connect(Uri.parse('wss://ws-feed.pro.coinbase.com'));
 
-  void _incrementCounter() {
-    setState(() {
-      _counter++;
+  final _subscribe =
+      '{"type": "subscribe", "channels": [{"name": "ticker","product_ids": ["BTC-USD"]}]}';
+
+  final _unsubscribe = '{"type": "unsubscribe","channels": ["ticker"]}';
+  var _subscribed = false;
+
+  Ticker? ticker;
+
+  _MyHomePageState() {
+    _channel.stream.listen((message) {
+      debugPrint('${message.runtimeType} : $message');
+      if (message.isNotEmpty) {
+        var parsedJson = json.decode(message);
+        String type = parsedJson['type'];
+        if (type == 'ticker') {
+          setState(() => ticker = Ticker.fromJson(parsedJson));
+        } else if (type == 'subscriptions') {
+          setState(() => _subscribed =
+              Subscriptions.fromJson(parsedJson).channels.isNotEmpty);
+        }
+      }
     });
+
+    _channel.sink.add(_subscribe);
+  }
+
+  void subscribe() {
+    if (_subscribed) {
+      _channel.sink.add(_unsubscribe);
+    } else {
+      _channel.sink.add(_subscribe);
+    }
   }
 
   @override
@@ -56,20 +93,25 @@ class _MyHomePageState extends State<MyHomePage> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
             Text(
-              'You have pushed the button this many times:',
+              'BTC-USD from Coinbase',
+              style: Theme.of(context).textTheme.caption,
             ),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headline4,
-            ),
+            Text(ticker != null ? '\$ ${ticker?.price}' : 'No data',
+                style: Theme.of(context).textTheme.headline2),
           ],
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: Icon(Icons.add),
+        onPressed: subscribe,
+        tooltip: _subscribed ? 'Unsubscribe' : 'Subscribe',
+        child: Icon(_subscribed ? Icons.pause : Icons.send),
       ), // This trailing comma makes auto-formatting nicer for build methods.
     );
+  }
+
+  @override
+  void dispose() {
+    _channel.sink.close();
+    super.dispose();
   }
 }
