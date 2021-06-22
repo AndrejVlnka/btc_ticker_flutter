@@ -97,7 +97,20 @@ class _MyHomePageState extends State<MyHomePage> {
               style: Theme.of(context).textTheme.caption,
             ),
             Text(ticker != null ? '\$ ${ticker?.price}' : 'No data',
-                style: Theme.of(context).textTheme.headline2),
+                style: Theme.of(context).textTheme.headline3),
+            SizedBox(height: 24),
+            Text(
+              ticker?.side ?? '',
+              style: TextStyle(
+                  color: ticker?.side == 'sell' ? Colors.red : Colors.green),
+            ),
+            Text(ticker != null ? 'Last Size ${ticker?.lastSize}' : ''),
+            SizedBox(height: 24),
+            Text(ticker != null ? 'Low 24h ${ticker?.low24h}' : ''),
+            Text(
+              ticker != null ? 'High 24h ${ticker?.high24h}' : '',
+            ),
+            Text(ticker?.time ?? ''),
           ],
         ),
       ),
